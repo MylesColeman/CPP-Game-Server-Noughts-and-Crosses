@@ -88,6 +88,8 @@ public:
 
 private:
     unsigned short m_tcp_port;
+    unsigned char m_board[3][3] = { {0,0,0}, {0,0,0}, {0,0,0} };
+    std::mutex m_board_mutex;
     unsigned short m_player_count { 0 };
     unsigned short m_turns_played { 0 };
     
@@ -150,12 +152,26 @@ private:
                 // Actually, there is no need to print the message if the message is not a string
                 debug_message(payload);
 
-                broadcast_message(payload, client);
+                if (payload[0] == GameMessageType::PLACE_TOKEN)
+                {
+                    const unsigned char *rowPtr { (unsigned char* )payload + 1 };
+                    const unsigned char *colPtr { (unsigned char* )payload + 1 + sizeof(int) };
+                    unsigned int row = be32toh(*((unsigned int *) rowPtr));
+                    unsigned int col = be32toh(*((unsigned int *) colPtr));
 
-                std::this_thread::sleep_for(std::chrono::milliseconds(250));
+                    unsigned char currentToken = (player_num == 1) ? Token::NOUGHTS : Token::CROSSES;
 
-                if(++m_turns_played == 9) {
-                    send_game_over_to_clients();   
+                    {
+                        std::lock_guard<std::mutex> lock(m_board_mutex);
+
+                        m_board[row][col] = currentToken;
+                    
+                        if (checkForWinner(currentToken))
+                            send_game_over_to_clients(currentToken);
+                        else if (++m_turns_played == 9)
+                            send_game_over_to_clients(0);
+                    }
+                    broadcast_message(payload, client);
                 }
             }
         }
@@ -208,7 +224,7 @@ private:
             case JOIN_GAME:     return 2;
             case PLACE_TOKEN:   return sizeof(int) * 2 + 2;
             case START_GAME:    return 1;
-            case GAME_OVER:     return 1;
+            case GAME_OVER:     return 2;
             default: return 0;
         }
     }
@@ -243,13 +259,33 @@ private:
         return broadcast_message(buf, nullptr);
     }
 
-    bool send_game_over_to_clients()
+    bool checkForWinner(unsigned char token) {
+        for (int i = 0; i < 3; i++) {
+            if (m_board[i][0] == token && m_board[i][1] == token && m_board[i][2] == token) return true;
+            if (m_board[0][i] == token && m_board[1][i] == token && m_board[2][i] == token) return true;
+        }
+
+        if (m_board[0][0] == token && m_board[1][1] == token && m_board[2][2] == token) return true;
+        if (m_board[0][2] == token && m_board[1][1] == token && m_board[2][0] == token) return true;
+
+        return false;
+    }
+
+    bool send_game_over_to_clients(unsigned char winnerToken)
     {
-        char buf[1] = { GAME_OVER };
+        char buf[2] = { GAME_OVER, winnerToken };
     
-        std::cout << "GAME OVER!" << std::endl;
+        std::cout << "GAME OVER! Winner: " << (int)winnerToken << std::endl;
+        resetGame();
 
         return broadcast_message(buf, nullptr);
+    }
+
+    void resetGame()
+    {
+        std::memset(m_board, 0, sizeof(m_board));
+        m_turns_played = 0;
+        std::cout << "Game state reset for next match." << std::endl;
     }
 };
 
