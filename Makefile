@@ -6,11 +6,15 @@ CPPFLAGS=
 LDLIBS=
 LIBS=
 CPP=g++
+OBJS=GameServer.o main.o
 
 all: server
 
-server: GameServer.o
-	$(CPP) $(CXXFLAGS) $(LDFLAGS) $(LIBS) $^ -o $@ $(CFLAGS)
+server: $(OBJS)
+	$(CPP) $(CXXFLAGS) $(LDFLAGS) $(OBJS) -o $@ $(CFLAGS)
+
+%.o: %.cpp
+		$(CPP) $(CXXFLAGS) -c $< -o $@
 
 clean:
 	\rm -f *.o server
