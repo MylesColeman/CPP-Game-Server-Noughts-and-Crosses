@@ -164,14 +164,21 @@ private:
                     {
                         std::lock_guard<std::mutex> lock(m_board_mutex);
 
-                        m_board[row][col] = currentToken;
-                    
-                        if (checkForWinner(currentToken))
-                            send_game_over_to_clients(currentToken);
-                        else if (++m_turns_played == 9)
-                            send_game_over_to_clients(0);
+                        if (row < 3 && col < 3 && m_board[row][col] == 0)
+                        {
+                            m_board[row][col] = currentToken;
+                            m_turns_played++;
+
+                            broadcast_message(payload, client);
+
+                            if (checkForWinner(currentToken))
+                                send_game_over_to_clients(currentToken);
+                            else if (m_turns_played == 9)
+                                send_game_over_to_clients(0);
+                        }
+                        else
+                            std::cout << "Invalid move attempted by Player " << player_num << std::endl;
                     }
-                    broadcast_message(payload, client);
                 }
             }
         }
@@ -273,19 +280,11 @@ private:
 
     bool send_game_over_to_clients(unsigned char winnerToken)
     {
-        char buf[2] = { GAME_OVER, winnerToken };
+        char buf[2] = { static_cast<char>(GAME_OVER), static_cast<char>(winnerToken) };
     
         std::cout << "GAME OVER! Winner: " << (int)winnerToken << std::endl;
-        resetGame();
 
         return broadcast_message(buf, nullptr);
-    }
-
-    void resetGame()
-    {
-        std::memset(m_board, 0, sizeof(m_board));
-        m_turns_played = 0;
-        std::cout << "Game state reset for next match." << std::endl;
     }
 };
 
