@@ -203,14 +203,6 @@ private:
     {
         size_t msgSize { message_size(buffer[0]) };
 
-        // You might want to validate the message before you send it.
-        // A few reasons for that:
-        // 1. Make sure the message makes sense in the game.
-        // 2. Make sure the sender is not cheating.
-        // 3. First need to synchronise the players inputs (usually done in Lockstep).
-        // 4. Compensate for latency and perform rollbacks (usually done in Ded Reckoning).
-        // 5. Delay the sending of messages to make the game fairer wrt high ping players.
-        // This is where you can write the authoritative part of the server.
         std::lock_guard<std::mutex> lock(m_clients_mutex);
         for (auto& client : m_clients)
         {
