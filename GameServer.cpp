@@ -12,7 +12,7 @@
 // A thourough rework is necessary for SFML 3.0.
 
 enum GameMessageType : unsigned char {
-    JOIN_GAME = 0x01, PLACE_TOKEN = 0x02
+    JOIN_GAME = 0x01, PLACE_TOKEN = 0x02, START_GAME = 0x03, GAME_OVER = 0x04
 };
 
 enum Token : unsigned char {
@@ -30,7 +30,7 @@ public:
     {
         // BINDING
         sf::TcpListener listener;
-        sf::Socket::Status status = listener.listen(m_tcp_port, sf::IpAddress("A.B.C.D"));
+        sf::Socket::Status status = listener.listen(m_tcp_port, sf::IpAddress::Any);
         if (status != sf::Socket::Status::Done)
         {
             std::cerr << "Error binding listener to port" << std::endl;
@@ -71,6 +71,12 @@ public:
                         // Slight pause to ensure the all threads have started
                         // --------------------------------------------------------------
                         std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+                        // As we no have two players, let's start the game:
+                        if(!send_start_game_to_clients())
+                        {
+                            std::cerr << "Unable to start the game, one or both players didn't receive the START_GAME message" << std::endl;    
+                        }
                     }
                 }
             }
@@ -83,6 +89,7 @@ public:
 private:
     unsigned short m_tcp_port;
     unsigned short m_player_count { 0 };
+    unsigned short m_turns_played { 0 };
     
     std::vector<sf::TcpSocket*> m_clients;
     std::mutex m_clients_mutex;
@@ -144,6 +151,12 @@ private:
                 debug_message(payload);
 
                 broadcast_message(payload, client);
+
+                std::this_thread::sleep_for(std::chrono::milliseconds(250));
+
+                if(++m_turns_played == 9) {
+                    send_game_over_to_clients();   
+                }
             }
         }
 
@@ -194,6 +207,8 @@ private:
         switch(messageType) {
             case JOIN_GAME:     return 2;
             case PLACE_TOKEN:   return sizeof(int) * 2 + 2;
+            case START_GAME:    return 1;
+            case GAME_OVER:     return 1;
             default: return 0;
         }
     }
@@ -217,6 +232,24 @@ private:
                 break;
             }
         }
+    }
+
+    bool send_start_game_to_clients()
+    {
+        char buf[1] = { START_GAME };
+    
+        std::cout << "STARTING THE GAME" << std::endl;
+
+        return broadcast_message(buf, nullptr);
+    }
+
+    bool send_game_over_to_clients()
+    {
+        char buf[1] = { GAME_OVER };
+    
+        std::cout << "GAME OVER!" << std::endl;
+
+        return broadcast_message(buf, nullptr);
     }
 };
 
