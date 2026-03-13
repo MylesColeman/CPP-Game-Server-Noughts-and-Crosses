@@ -169,16 +169,21 @@ private:
                             m_board[row][col] = currentToken;
                             m_turns_played++;
 
-                            broadcast_message(payload, client);
-
                             if (checkForWinner(currentToken))
+                            {
+                                std::this_thread::sleep_for(std::chrono::milliseconds(50));
                                 send_game_over_to_clients(currentToken);
+                            }
                             else if (m_turns_played == 9)
+                            {
+                                std::this_thread::sleep_for(std::chrono::milliseconds(50));
                                 send_game_over_to_clients(0);
+                            }
                         }
                         else
                             std::cout << "Invalid move attempted by Player " << player_num << std::endl;
                     }
+                    broadcast_message(payload, client);
                 }
             }
         }
